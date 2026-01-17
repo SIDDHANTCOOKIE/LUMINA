@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lumina - Cinematic SaaS</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- HLS.js for streaming video support -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+    <!-- Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        background: '#000000',
+                        text: {
+                            primary: '#EDEDED',
+                            secondary: '#A1A1AA', // Zinc 400
+                            muted: '#52525B', // Zinc 600
+                        },
+                        ui: {
+                            border: 'rgba(255, 255, 255, 0.08)',
+                            borderHover: 'rgba(255, 255, 255, 0.2)',
+                            surface: 'rgba(255, 255, 255, 0.02)',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
+                    },
+                    fontSize: {
+                        'hero': ['72px', { lineHeight: '1.1', letterSpacing: '-0.02em' }],
+                        'h2': ['40px', { lineHeight: '1.2', letterSpacing: '-0.01em' }],
+                        'h3': ['24px', { lineHeight: '1.3' }],
+                        'card-title': ['18px', { lineHeight: '1.4', fontWeight: '600' }],
+                        'body': ['16px', { lineHeight: '1.6' }],
+                        'small': ['14px', { lineHeight: '1.5' }],
+                    },
+                    spacing: {
+                        'section': '96px',
+                        'gap': '24px',
+                    },
+                    borderRadius: {
+                        'xl': '16px', 
+                        '2xl': '24px',
+                    },
+                    animation: {
+                        'spotlight': 'spotlight 2s ease .75s 1 forwards',
+                        'scroll': 'scroll 40s linear infinite',
+                    },
+                    keyframes: {
+                        spotlight: {
+                            '0%': { opacity: 0, transform: 'translate(-72%, -62%) scale(0.5)' },
+                            '100%': { opacity: 1, transform: 'translate(-50%,-40%) scale(1)' },
+                        },
+                        scroll: {
+                            '0%': { transform: 'translateX(0)' },
+                            '100%': { transform: 'translateX(-50%)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Global Reset */
+        body {
+            background-color: #000000;
+            color: #EDEDED;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* --- Navbar Transitions --- */
+        #nav-wrapper {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 50;
+            display: flex;
+            justify-content: center;
+            transition: padding-top 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+        }
+
+        #nav-content {
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            
+            background: rgba(10, 10, 10, 0.5); 
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+
+            width: 100%;
+            height: 64px;
+            padding: 0 32px;
+            border-radius: 0;
+            max-width: 100%; 
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @media (min-width: 1024px) {
+            #nav-content {
+                padding: 0 96px;
+            }
+        }
+
+        body.scrolled #nav-wrapper { padding-top: 24px; }
+
+        body.scrolled #nav-content {
+            max-width: 480px;
+            height: 50px;
+            padding: 0 24px;
+            border-radius: 9999px;
+            border-color: rgba(255, 255, 255, 0.12);
+            background: rgba(10, 10, 10, 0.7);
+            box-shadow: 0 8px 32px -8px rgba(0,0,0,0.5);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        #nav-cta {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            overflow: hidden;
+            max-width: 200px;
+            opacity: 1;
+            transition: max-width 0.5s cubic-bezier(0.4, 0, 0.2, 1), 
+                        opacity 0.4s ease,
+                        transform 0.4s ease;
+        }
+
+        body.scrolled #nav-cta {
+            max-width: 0;
+            opacity: 0;
+            transform: translateX(20px);
+            pointer-events: none;
+            margin-left: 0;
+        }
+
+        #nav-links { transition: all 0.5s ease; }
+        body.scrolled #nav-content { justify-content: center; }
+        body.scrolled #nav-links { margin-left: 32px; }
+
+        /* --- Liquid Glass Effect (Restored) --- */
+        .liquid-glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 
+                0 4px 30px rgba(0, 0, 0, 0.1),
+                inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .liquid-glass:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+            box-shadow: 
+                0 0 20px rgba(255, 255, 255, 0.1),
+                inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .liquid-glass::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(255, 255, 255, 0.1),
+                transparent
+            );
+            transition: 0.5s;
+        }
+        
+        .liquid-glass:hover::after {
+            left: 100%;
+        }
+
+        /* --- Liquid Metal Border Effect --- */
+        .btn-liquid-metal {
+            position: relative;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 9999px;
+            padding: 2px; /* This controls the visible thickness of the metal border */
+            text-decoration: none;
+            overflow: hidden;
+            background: transparent;
+            isolation: isolate;
+            transition: transform 0.2s ease;
+        }
+
+        /* The Animated Metal Gradient (The Border) */
+        .btn-liquid-metal::before {
+            content: "";
+            position: absolute;
+            inset: -100%; /* Extend far out to allow rotation without clipping corners */
+            width: 300%;
+            height: 300%;
+            /* FIXED: Using #444 as the darkest point (Dark Steel). 
+               Added multiple white peaks (#fff) to ensure constant visible flow.
+            */
+            background: conic-gradient(
+                from 0deg, 
+                #444 0%, 
+                #444 10%, 
+                #888 20%, 
+                #fff 25%, 
+                #888 30%, 
+                #444 40%, 
+                #444 50%, 
+                #888 60%, 
+                #fff 65%, 
+                #888 70%, 
+                #444 80%, 
+                #444 100%
+            );
+            /* Slower animation: 8s */
+            animation: liquid-spin 8s linear infinite;
+            z-index: -1;
+            filter: blur(1px); /* Slight softness for the glow */
+        }
+        
+        /* Secondary Reflection Layer for complexity */
+        .btn-liquid-metal::after {
+            content: "";
+            position: absolute;
+            inset: -100%;
+            width: 300%;
+            height: 300%;
+            /* Matching contrast for the overlay */
+            background: conic-gradient(
+                from 180deg, 
+                #444 0%, 
+                #444 10%, 
+                #888 20%, 
+                #fff 25%, 
+                #888 30%, 
+                #444 40%, 
+                #444 100%
+            );
+            /* Slower animation: 8s */
+            animation: liquid-spin 8s linear infinite reverse;
+            z-index: -1;
+            mix-blend-mode: overlay;
+        }
+
+        /* The Inner Content (Black Pill) */
+        .btn-inner {
+            position: relative;
+            background: #000; /* Solid black core */
+            border-radius: 9999px;
+            color: #fff;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 0 24px; /* Padding inside the black pill */
+            z-index: 1;
+        }
+
+        .btn-liquid-metal:hover {
+            transform: scale(1.02);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.15);
+        }
+        
+        /* Speed up animation slightly on hover */
+        .btn-liquid-metal:hover::before {
+            animation-duration: 4s;
+        }
+
+        @keyframes liquid-spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* --- Shadcn-style Card --- */
+        .shadcn-card {
+            background-color: rgba(20, 20, 22, 0.4); 
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden;
+            background-size: cover;
+            background-position: center;
+        }
+
+        .shadcn-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 100%);
+            z-index: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .shadcn-card:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+        }
+        
+        .shadcn-card:hover::before {
+            background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.5) 100%);
+        }
+
+        .shadcn-card > * {
+            position: relative;
+            z-index: 10;
+        }
+
+        /* --- Utilities --- */
+        .hide-scroll::-webkit-scrollbar { display: none; }
+        .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+        video { object-fit: cover; width: 100%; height: 100%; }
+        .mock-line { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.1); }
+        .check-icon { color: #fff; }
+        
+        .pricing-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+        .pricing-card:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.04);
+            transform: translateY(-4px);
+        }
+    </style>
+</head>
+<body class="overflow-x-hidden selection:bg-white/20">
+
+    <!-- Navigation -->
+    <div id="nav-wrapper">
+        <nav id="nav-content">
+            <!-- Logo -->
+            <a href="#" class="flex items-center gap-2 group shrink-0">
+                <div class="w-6 h-6 bg-white rounded-md flex items-center justify-center text-black font-bold text-xs group-hover:rotate-12 transition-transform">L</div>
+                <span class="text-sm font-semibold tracking-wide text-white">Lumina</span>
+            </a>
+            
+            <!-- Links -->
+            <div id="nav-links" class="hidden md:flex gap-8 text-sm font-medium shrink-0">
+                <a href="#features" class="text-text-secondary hover:text-white transition-colors">Features</a>
+                <a href="#customers" class="text-text-secondary hover:text-white transition-colors">Customers</a>
+                <a href="#pricing" class="text-text-secondary hover:text-white transition-colors">Pricing</a>
+            </div>
+
+            <!-- CTAs -->
+            <div id="nav-cta">
+                <a href="#" class="text-sm font-medium text-text-secondary hover:text-white transition-colors">Log in</a>
+                <!-- Restored Liquid Glass Nav Button -->
+                <a href="#" class="liquid-glass px-5 py-1.5 rounded-full text-sm font-medium text-white flex items-center h-[34px] hover:text-white transition-colors">
+                    Get Started
+                </a>
+            </div>
+        </nav>
+    </div>
+
+    <!-- Hero Section -->
+    <section class="relative w-full h-screen flex flex-col items-center justify-center overflow-hidden pt-[56px]">
+        <div class="absolute inset-0 bg-grid z-0 opacity-20 pointer-events-none"></div>
+        <div id="hero-video-container" class="absolute inset-0 z-0 opacity-40 mix-blend-screen"></div>
+        <div class="absolute bottom-0 left-0 w-full h-64 bg-gradient-to-t from-background to-transparent z-10"></div>
+
+        <div class="relative z-20 text-center max-w-4xl px-6 flex flex-col items-center gap-6">
+            <h1 class="text-5xl md:text-hero font-bold tracking-tight text-white bg-clip-text text-transparent bg-gradient-to-b from-white to-white/60 pb-2">
+                Clarity in motion.
+            </h1>
+            <p class="text-lg md:text-xl text-text-secondary max-w-xl mx-auto leading-relaxed">
+                The first cinematic platform for modern workflow. Eliminate noise, focus on signal, and render your vision at the speed of thought.
+            </p>
+            <div class="flex flex-col sm:flex-row gap-4 mt-8">
+                <!-- Liquid Metal Hero Button (Slowed Down, Icon Removed) -->
+                <button class="btn-liquid-metal h-14">
+                    <span class="btn-inner text-lg font-semibold px-8">
+                        Start Building
+                    </span>
+                </button>
+                <button class="h-14 px-8 rounded-full text-text-secondary font-medium hover:text-white transition-colors flex items-center gap-2">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                    Watch Demo
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Logo Ticker -->
+    <section class="py-12 border-y border-white/5 bg-white/[0.02]">
+        <div class="max-w-6xl mx-auto px-6">
+            <p class="text-center text-xs font-medium text-text-muted mb-8 uppercase tracking-widest">Trusted by industry leaders</p>
+            <div class="flex justify-between items-center opacity-40 grayscale gap-8 flex-wrap md:flex-nowrap">
+                <svg class="h-6" viewBox="0 0 100 30" fill="currentColor"><path d="M10,15 L20,5 L30,15 L40,5 L50,15" stroke="currentColor" stroke-width="3" fill="none"/></svg>
+                <svg class="h-6" viewBox="0 0 100 30" fill="currentColor"><circle cx="15" cy="15" r="10"/><circle cx="45" cy="15" r="10"/></svg>
+                <svg class="h-6" viewBox="0 0 100 30" fill="currentColor"><rect x="5" y="5" width="20" height="20"/><rect x="35" y="5" width="20" height="20"/></svg>
+                <svg class="h-6" viewBox="0 0 100 30" fill="currentColor"><path d="M10,25 L25,5 L40,25" stroke="currentColor" stroke-width="3" fill="none"/></svg>
+                <svg class="h-6" viewBox="0 0 100 30" fill="currentColor"><path d="M5,15 h40" stroke="currentColor" stroke-width="4"/></svg>
+            </div>
+        </div>
+    </section>
+
+    <!-- Bento Grid Features -->
+    <section id="features" class="py-section relative bg-background">
+        <div class="max-w-6xl mx-auto px-6">
+            <div class="mb-16">
+                <h2 class="text-h2 font-bold mb-4">Engineered for speed</h2>
+                <p class="text-text-secondary text-lg max-w-2xl">Every interaction is designed to keep you in the flow. We removed the clutter so you can focus on the craft.</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-gap auto-rows-[300px]">
+                <div class="shadcn-card md:col-span-2 p-8 flex flex-col justify-between group" style="background-image: url('https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2670&auto=format&fit=crop');">
+                    <div class="relative w-full h-32 mb-4 border-b border-white/20 flex items-end gap-2 pb-2 overflow-hidden">
+                        <div class="w-1/6 h-1/3 bg-white/20 rounded-t-sm group-hover:h-1/2 transition-all duration-500"></div>
+                        <div class="w-1/6 h-1/2 bg-white/30 rounded-t-sm group-hover:h-2/3 transition-all duration-500 delay-75"></div>
+                        <div class="w-1/6 h-2/3 bg-white/40 rounded-t-sm group-hover:h-3/4 transition-all duration-500 delay-100"></div>
+                        <div class="w-1/6 h-1/2 bg-white/20 rounded-t-sm group-hover:h-2/3 transition-all duration-500 delay-150"></div>
+                        <div class="w-1/6 h-3/4 bg-white/30 rounded-t-sm group-hover:h-full transition-all duration-500 delay-200"></div>
+                        <div class="w-1/6 h-1/3 bg-white/20 rounded-t-sm"></div>
+                    </div>
+                    <div>
+                        <h3 class="text-card-title text-white mb-2">Real-time Analytics</h3>
+                        <p class="text-text-secondary text-sm">Visualize your rendering pipeline with millisecond precision.</p>
+                    </div>
+                </div>
+                <div class="shadcn-card md:col-span-1 p-8 flex flex-col justify-between" style="background-image: url('https://images.unsplash.com/photo-1635070041078-e363dbe005cb?q=80&w=2600&auto=format&fit=crop');">
+                    <div class="bg-black/60 backdrop-blur-sm rounded-lg p-4 border border-white/10 mb-4 shadow-lg">
+                        <div class="flex gap-1.5 mb-3">
+                            <div class="w-2 h-2 rounded-full bg-red-500/80"></div>
+                            <div class="w-2 h-2 rounded-full bg-yellow-500/80"></div>
+                            <div class="w-2 h-2 rounded-full bg-green-500/80"></div>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="mock-line w-3/4"></div>
+                            <div class="mock-line w-1/2"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-card-title text-white mb-2">Encrypted Core</h3>
+                        <p class="text-text-secondary text-sm">SOC2 Type II certified infrastructure.</p>
+                    </div>
+                </div>
+                <div class="shadcn-card md:col-span-1 p-8 flex flex-col justify-between" style="background-image: url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2670&auto=format&fit=crop');">
+                    <div class="flex -space-x-3 mb-4 pl-2">
+                        <div class="w-10 h-10 rounded-full border-2 border-black bg-zinc-800 flex items-center justify-center text-xs text-white">JD</div>
+                        <div class="w-10 h-10 rounded-full border-2 border-black bg-zinc-700 flex items-center justify-center text-xs text-white">AS</div>
+                        <div class="w-10 h-10 rounded-full border-2 border-black bg-white text-black flex items-center justify-center text-xs font-bold">+4</div>
+                    </div>
+                    <div>
+                        <h3 class="text-card-title text-white mb-2">Team Sync</h3>
+                        <p class="text-text-secondary text-sm">Multiplayer editing environment.</p>
+                    </div>
+                </div>
+                <div class="shadcn-card md:col-span-2 p-8 flex flex-col justify-between relative overflow-hidden" style="background-image: url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2672&auto=format&fit=crop');">
+                    <div class="absolute inset-0 opacity-20">
+                         <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150%] h-[150%] border border-white/20 rounded-full"></div>
+                         <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[100%] h-[100%] border border-white/20 rounded-full"></div>
+                    </div>
+                    <div class="relative z-10 mt-auto">
+                        <h3 class="text-card-title text-white mb-2">Global Edge Network</h3>
+                        <p class="text-text-secondary text-sm">Deploy your assets to 240+ regions instantly.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section id="pricing" class="py-section bg-background relative overflow-hidden">
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-white/5 blur-[120px] rounded-full pointer-events-none"></div>
+        <div class="max-w-6xl mx-auto px-6 relative z-10">
+            <div class="text-center mb-16">
+                <h2 class="text-h2 font-bold mb-4">Simple, transparent pricing</h2>
+                <p class="text-text-secondary text-lg">No hidden fees. Scale as you grow.</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
+                <!-- Starter -->
+                <div class="pricing-card rounded-2xl p-8 flex flex-col h-full">
+                    <h3 class="text-lg font-semibold text-white mb-2">Starter</h3>
+                    <div class="text-3xl font-bold text-white mb-6">$0 <span class="text-sm font-normal text-text-muted">/mo</span></div>
+                    <p class="text-text-secondary text-sm mb-8">Perfect for hobbyists and side projects.</p>
+                    <button class="w-full py-3 rounded-xl border border-white/10 text-white font-medium hover:bg-white/5 transition-colors mb-8">Get Started</button>
+                    <ul class="space-y-4 text-sm text-text-secondary">
+                        <li class="flex items-center gap-3"><svg class="w-4 h-4 check-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> 1 Project</li>
+                        <li class="flex items-center gap-3"><svg class="w-4 h-4 check-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Community Support</li>
+                        <li class="flex items-center gap-3"><svg class="w-4 h-4 check-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> 5GB Storage</li>
+                    </ul>
+                </div>
+                <!-- Pro -->
+                <div class="pricing-card rounded-2xl p-8 flex flex-col h-full relative bg-white/[0.04] border-white/20">
+                    <div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-white text-black text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">Most Popular</div>
+                    <h3 class="text-lg font-semibold text-white mb-2">Pro</h3>
+                    <div class="text-3xl font-bold text-white mb-6">$29 <span class="text-sm font-normal text-text-muted">/mo</span></div>
+                    <p class="text-text-secondary text-sm mb-8">For professional creators and small teams.</p>
+                    <button class="w-full py-3 rounded-xl bg-white text-black font-bold hover:bg-gray-200 transition-colors mb-8">Start Free Trial</button>
+                    <ul class="space-y-4 text-sm text-text-secondary">
+                        <li class="flex items-center gap-3"><svg class="w-4 h-4 check-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Unlimited Projects</li>
+                        <li class="flex items-center gap-3"><svg class="w-4 h-4 check-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Priority Support</li>
+                        <li class="flex items-center gap-3"><svg class="w-4 h-4 check-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> 1TB Storage</li>
+                        <li class="flex items-center gap-3"><svg class="w-4 h-4 check-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> 4K Export</li>
+                    </ul>
+                </div>
+                <!-- Enterprise -->
+                <div class="pricing-card rounded-2xl p-8 flex flex-col h-full">
+                    <h3 class="text-lg font-semibold text-white mb-2">Enterprise</h3>
+                    <div class="text-3xl font-bold text-white mb-6">Custom</div>
+                    <p class="text-text-secondary text-sm mb-8">For large organizations requiring scale.</p>
+                    <button class="w-full py-3 rounded-xl border border-white/10 text-white font-medium hover:bg-white/5 transition-colors mb-8">Contact Sales</button>
+                    <ul class="space-y-4 text-sm text-text-secondary">
+                        <li class="flex items-center gap-3"><svg class="w-4 h-4 check-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> SSO & Advanced Security</li>
+                        <li class="flex items-center gap-3"><svg class="w-4 h-4 check-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Dedicated Success Manager</li>
+                        <li class="flex items-center gap-3"><svg class="w-4 h-4 check-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Unlimited Storage</li>
+                        <li class="flex items-center gap-3"><svg class="w-4 h-4 check-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Custom SLA</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer with Liquid Metal Buttons (Slowed Down) -->
+    <footer class="py-12 border-t border-white/5 bg-black">
+        <div class="max-w-6xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
+            <div class="flex items-center gap-2">
+                <div class="w-5 h-5 bg-white rounded-sm flex items-center justify-center text-black font-bold text-[10px]">L</div>
+                <span class="text-sm font-semibold text-text-secondary">Lumina</span>
+            </div>
+            
+            <!-- Liquid Metal Social Buttons -->
+            <div class="flex gap-4">
+                <!-- Twitter -->
+                <a href="#" class="btn-liquid-metal h-10 w-32">
+                    <span class="btn-inner text-sm font-medium">Twitter</span>
+                </a>
+                
+                <!-- GitHub -->
+                <a href="#" class="btn-liquid-metal h-10 w-32">
+                    <span class="btn-inner text-sm font-medium">GitHub</span>
+                </a>
+                
+                <!-- Discord -->
+                <a href="#" class="btn-liquid-metal h-10 w-32">
+                    <span class="btn-inner text-sm font-medium">Discord</span>
+                </a>
+            </div>
+            
+            <p class="text-xs text-text-muted">© 2024 Lumina Inc.</p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script>
+        // --- 1. Hero Video Configuration ---
+        const heroVideoUrl = "https://customer-cbeadsgr09pnsezs.cloudflarestream.com/697945ca6b876878dba3b23fbd2f1561/manifest/video.m3u8";
+
+        // --- 2. HLS Video Player Logic ---
+        function initHLS(videoEl, src) {
+            if (Hls.isSupported()) {
+                const hls = new Hls({ autoStartLoad: true });
+                hls.loadSource(src);
+                hls.attachMedia(videoEl);
+            } 
+            else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+                videoEl.src = src;
+            }
+        }
+
+        // --- 3. DOM Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            // Setup Hero Video
+            const heroContainer = document.getElementById('hero-video-container');
+            if (heroContainer) {
+                const video = document.createElement('video');
+                video.muted = true;
+                video.loop = true;
+                video.autoplay = true;
+                video.playsInline = true;
+                video.setAttribute('aria-hidden', 'true');
+                video.style.opacity = '0';
+                video.style.transition = 'opacity 2s ease-in';
+                
+                heroContainer.appendChild(video);
+                initHLS(video, heroVideoUrl);
+
+                video.addEventListener('playing', () => {
+                    video.style.opacity = '0.5';
+                });
+            }
+
+            // --- 4. Interactive Components ---
+            
+            // Refined Navbar Logic
+            const scrollThreshold = 50;
+            window.addEventListener('scroll', () => {
+                if (window.scrollY > scrollThreshold) {
+                    document.body.classList.add('scrolled');
+                } else {
+                    document.body.classList.remove('scrolled');
+                }
+            });
+
+            // Accordion Logic
+            const accordions = document.querySelectorAll('.faq-btn');
+            accordions.forEach(acc => {
+                acc.addEventListener('click', function() {
+                    const content = this.nextElementSibling;
+                    const icon = this.querySelector('svg');
+                    
+                    if (content.style.height) {
+                        content.style.height = null;
+                        icon.style.transform = 'rotate(0deg)';
+                    } else {
+                        document.querySelectorAll('.faq-content').forEach(c => c.style.height = null);
+                        document.querySelectorAll('.faq-btn svg').forEach(i => i.style.transform = 'rotate(0deg)');
+                        
+                        content.style.height = content.scrollHeight + "px";
+                        icon.style.transform = 'rotate(180deg)';
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
